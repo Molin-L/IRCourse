@@ -7,7 +7,9 @@ import org.terrier.structures.postings.Posting;
 
 import java.io.*;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -61,6 +63,8 @@ public class SimpleVectorModel extends WeightingModel
 
         ExecutorService pool = Executors.newCachedThreadPool();
         final Map<String, Double> docFreqHashMap = new HashMap<String, Double>();
+
+        final Queue lockQ = new LinkedList();
         for(int i = 0; i<num_doc; i++) {
             final int j = i;
             Runnable run = new Runnable() {
@@ -75,20 +79,29 @@ public class SimpleVectorModel extends WeightingModel
                         e.printStackTrace();
                     }
                     //NB: postings will be null if the document is empty
-                    
 
-                    while (postings.next() != IterablePosting.EOL) {
+                    while (true) {
+                        try {
+                            if (!(postings.next() != IterablePosting.EOL)) break;
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                         double docLength = postings.getDocumentLength();
                         Map.Entry<String, LexiconEntry> lee = lex.getLexiconEntry(postings.getId());
                         double tf = postings.getFrequency();
-                        double pDocFreq;
-                        if (docFreqHashMap.containsKey(lee.getKey())) {
-                            pDocFreq = docFreqHashMap.get(lee.getKey());
-                        } else {
-                            LexiconEntry le = lex.getLexiconEntry(lee.getKey());
-                            pDocFreq = le.getDocumentFrequency();
-                            docFreqHashMap.put(lee.getKey(), pDocFreq);
+                        double pDocFreq = 0.0;
+                        if(lockQ.isEmpty()){
+                            if (docFreqHashMap.containsKey(lee.getKey())) {
+                                pDocFreq = docFreqHashMap.get(lee.getKey());
+                            } else {
+                                LexiconEntry le = lex.getLexiconEntry(lee.getKey());
+                                pDocFreq = le.getDocumentFrequency();
+                                lockQ.add(1);
+                                docFreqHashMap.put(lee.getKey(), pDocFreq);
+                                lockQ.remove();
+                            }
                         }
+
                         double D_k = pDocFreq;
                         // Calculate the TF
                         double TF = Math.log(tf) / Math.log(10);
