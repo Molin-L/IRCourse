@@ -27,7 +27,10 @@ public class SimpleVectorModel extends WeightingModel
 	//will be needed for your vector space model implementation
 	
 	void init() throws IOException, ClassNotFoundException {
-        File binFile = new File("tfIdfWeigh.bin");
+
+        private final static Executor executor = Executors.newCachedThreadPool();/
+
+        File binFile = new File("/home/ubuntu/IR/Coursework/IRcourse/res/tfIdfWeigh.csv");
         if(binFile.exists() && !binFile.isDirectory()) {
             ObjectInputStream objectInputStream =
                     null;
@@ -41,9 +44,8 @@ public class SimpleVectorModel extends WeightingModel
             return;
         }
         binFile.createNewFile(); // if file already exists will do nothing
-        ObjectOutputStream objectOutputStream =
-                new ObjectOutputStream(new FileOutputStream(binFile, false));
-
+                
+        FileWriter fw = new FileWriter(binFile, true);    
         tfIdfWeight = new HashMap<Integer, HashMap<String, Double>>();
         
         //Preset
@@ -56,32 +58,48 @@ public class SimpleVectorModel extends WeightingModel
         DocumentIndex doi = index.getDocumentIndex();
         Lexicon<String> lex = index.getLexicon();
         for(int i = 0; i<num_doc; i++){
-            
-            int docid = i; //docids are 0-based
-            IterablePosting postings = di.getPostings(doi.getDocumentEntry(docid));
-            //NB: postings will be null if the document is empty
-            Map<String, Double> docFreqHashMap = new HashMap<String, Double>();
-            
-            while (postings.next() != IterablePosting.EOL) {
-                double docLength = postings.getDocumentLength();
-                Map.Entry<String, LexiconEntry> lee = lex.getLexiconEntry(postings.getId());
-                double tf = postings.getFrequency();
-                double pDocFreq;
-                if(docFreqHashMap.containsKey(lee.getKey())){
-                    pDocFreq = docFreqHashMap.get(lee.getKey());
-                }else{
-                    LexiconEntry le = lex.getLexiconEntry(lee.getKey());
-                    pDocFreq = le.getDocumentFrequency();
-                    docFreqHashMap.put(lee.getKey(), pDocFreq);
+            final int j=i;
+            executor.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                    try{
+                        int docid = j; //docids are 0-based
+                        IterablePosting postings = di.getPostings(doi.getDocumentEntry(docid));
+                        //NB: postings will be null if the document is empty
+                        Map<String, Double> docFreqHashMap = new HashMap<String, Double>();
+                    
+                        while (postings.next() != IterablePosting.EOL) {
+                            double docLength = postings.getDocumentLength();
+                            Map.Entry<String, LexiconEntry> lee = lex.getLexiconEntry(postings.getId());
+                            double tf = postings.getFrequency();
+                            double pDocFreq;
+                            if(docFreqHashMap.containsKey(lee.getKey())){
+                                pDocFreq = docFreqHashMap.get(lee.getKey());
+                            }else{
+                                LexiconEntry le = lex.getLexiconEntry(lee.getKey());
+                                pDocFreq = le.getDocumentFrequency();
+                                docFreqHashMap.put(lee.getKey(), pDocFreq);
+                            }
+                            double D_k = pDocFreq;
+                            // Calculate the TF
+                            double TF = Math.log(tf) / Math.log(10);
+                            // Calculate the idf
+                            double idf = Math.log((N_doc - D_k + 0.5) / (D_k + 0.5)) / Math.log(10);
+                            double tf_idf =  (1 + TF) * idf;
+                            docFreqHashMap.put(lee.getKey(), tf_idf);
+                        
+                        }
+                        for(key:docFreqHashMap.getKey()){
+                            
+                        }
+                    catch(Exception e){
+
+                    } 
+                    }
                 }
-                double D_k = pDocFreq;
-                // Calculate the TF
-                double TF = Math.log(tf) / Math.log(10);
-                // Calculate the idf
-                double idf = Math.log((N_doc - D_k + 0.5) / (D_k + 0.5)) / Math.log(10);
-                double tf_idf = keyFrequency*(1 + TF) * idf;
-                docFreqHashMap.put(lee.getKey(), tf_idf);
             }
+            
+
             tfIdfWeight.put(i, (HashMap<String, Double>) docFreqHashMap);
         }
         
