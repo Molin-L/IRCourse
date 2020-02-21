@@ -1,10 +1,13 @@
 package uk.ac.gla.dcs.models;
 
 import org.terrier.matching.models.WeightingModel;
+import org.terrier.structures.*;
+import org.terrier.structures.postings.IterablePosting;
 import org.terrier.structures.postings.Posting;
-import org.terrier.Index.*;
-import java.util.*;
+
 import java.io.*;
+import java.util.HashMap;
+import java.util.Map;
 /** You should use this sample class to implement a Simple TF*IDF weighting model for Exercise 1
   * of the exercise. You can tell Terrier to use your weighting model by specifying the 
   * -w commandline option, or the property trec.model=uk.ac.gla.dcs.models.MyWeightingModel.
@@ -23,11 +26,16 @@ public class SimpleVectorModel extends WeightingModel
 	//init() will NOT be needed in your Simple TF*IDF implementation but 
 	//will be needed for your vector space model implementation
 	
-	void init() {
+	void init() throws IOException, ClassNotFoundException {
         File binFile = new File("tfIdfWeigh.bin");
-        if(binFile.exists() && !binFile.isDirectory()) { 
+        if(binFile.exists() && !binFile.isDirectory()) {
             ObjectInputStream objectInputStream =
-                new ObjectInputStream(new FileInputStream(binFile));
+                    null;
+            try {
+                objectInputStream = new ObjectInputStream(new FileInputStream(binFile));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             tfIdfWeight= (HashMap<Integer, HashMap<String, Double>>) objectInputStream.readObject();
             init = true;
             return;
@@ -52,18 +60,16 @@ public class SimpleVectorModel extends WeightingModel
             int docid = i; //docids are 0-based
             IterablePosting postings = di.getPostings(doi.getDocumentEntry(docid));
             //NB: postings will be null if the document is empty
-            Map<String, Double> docFreqHashMap = new HashMap<String, double>();
+            Map<String, Double> docFreqHashMap = new HashMap<String, Double>();
             
             while (postings.next() != IterablePosting.EOL) {
                 double docLength = postings.getDocumentLength();
-                Map.Entry<String,LexiconEntry> lee = lex.getLexiconEntry(postings.getId());
+                Map.Entry<String, LexiconEntry> lee = lex.getLexiconEntry(postings.getId());
                 double tf = postings.getFrequency();
                 double pDocFreq;
-                if(docFreqHashMap.containKey(lee.getKey())){
+                if(docFreqHashMap.containsKey(lee.getKey())){
                     pDocFreq = docFreqHashMap.get(lee.getKey());
                 }else{
-                    Index index = Index.createIndex();
-                    Lexicon<String> lex = index.getLexicon();
                     LexiconEntry le = lex.getLexiconEntry(lee.getKey());
                     pDocFreq = le.getDocumentFrequency();
                     docFreqHashMap.put(lee.getKey(), pDocFreq);
@@ -76,7 +82,7 @@ public class SimpleVectorModel extends WeightingModel
                 double tf_idf = keyFrequency*(1 + TF) * idf;
                 docFreqHashMap.put(lee.getKey(), tf_idf);
             }
-            tfIdfWeight.put(i, docFreqHashMap);
+            tfIdfWeight.put(i, (HashMap<String, Double>) docFreqHashMap);
         }
         
 		//you may complete any initialisation code here.
@@ -102,8 +108,15 @@ public class SimpleVectorModel extends WeightingModel
 
 	@Override
 	public double score(Posting p) {
-		if (! init)
-			init();
+		if (! init) {
+            try {
+                init();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
 
 		double tf = p.getFrequency();
 		double docLength = p.getDocumentLength();
