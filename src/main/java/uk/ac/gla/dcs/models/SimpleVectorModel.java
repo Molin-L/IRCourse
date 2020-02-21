@@ -35,14 +35,7 @@ public class SimpleVectorModel extends WeightingModel
 
         File binFile = new File("/home/ubuntu/IR/Coursework/IRcourse/res/tfIdfWeigh.csv");
         if(binFile.exists() && !binFile.isDirectory()) {
-            ObjectInputStream objectInputStream =
-                    null;
-            try {
-                objectInputStream = new ObjectInputStream(new FileInputStream(binFile));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            tfIdfWeight= (HashMap<Integer, HashMap<String, Double>>) objectInputStream.readObject();
+            //tfIdfWeight= (HashMap<Integer, HashMap<String, Double>>) objectInputStream.readObject();
             init = true;
             return;
         }
@@ -56,26 +49,29 @@ public class SimpleVectorModel extends WeightingModel
         double [] init_array = new double[num_doc];
         double N_doc = super.numberOfDocuments;
 
-        Index index = Index.createIndex();
-        PostingIndex<?> di = index.getDirectIndex();
-        DocumentIndex doi = index.getDocumentIndex();
-        Lexicon<String> lex = index.getLexicon();
+        
 
         ExecutorService pool = Executors.newCachedThreadPool();
         final Map<String, Double> docFreqHashMap = new HashMap<String, Double>();
 
         final Queue lockQ = new LinkedList();
-        for(int i = 0; i<num_doc; i++) {
+        for(int i = 0; i<2; i++) {
             final int j = i;
             Runnable run = new Runnable() {
                 @Override
                 public void run() {
                     int docid = j; //docids are 0-based
-
+                    System.out.println(docid);
+                    Index index = Index.createIndex();
+                    PostingIndex<?> di = index.getDirectIndex();
+                    DocumentIndex doi = index.getDocumentIndex();
+                    Lexicon<String> lex = index.getLexicon();
                     IterablePosting postings = null;
+
                     try {
                         postings = di.getPostings(doi.getDocumentEntry(docid));
                     } catch (IOException e) {
+                        System.out.println(docid);
                         e.printStackTrace();
                     }
                     //NB: postings will be null if the document is empty
@@ -86,16 +82,15 @@ public class SimpleVectorModel extends WeightingModel
                             Map.Entry<String, LexiconEntry> lee = lex.getLexiconEntry(postings.getId());
                             double tf = postings.getFrequency();
                             double pDocFreq = 0.0;
-                            if(lockQ.isEmpty()){
-                                if (docFreqHashMap.containsKey(lee.getKey())) {
-                                    pDocFreq = docFreqHashMap.get(lee.getKey());
-                                } else {
-                                    LexiconEntry le = lex.getLexiconEntry(lee.getKey());
-                                    pDocFreq = le.getDocumentFrequency();
-                                    lockQ.add(1);
-                                    docFreqHashMap.put(lee.getKey(), pDocFreq);
-                                    lockQ.remove();
-                                }
+                            //while(!lockQ.isEmpty()){}
+                            if (docFreqHashMap.containsKey(lee.getKey())) {
+                                pDocFreq = docFreqHashMap.get(lee.getKey());
+                            } else {
+                                LexiconEntry le = lex.getLexiconEntry(lee.getKey());
+                                pDocFreq = le.getDocumentFrequency();
+                                lockQ.add(1);
+                                docFreqHashMap.put(lee.getKey(), pDocFreq);
+                                lockQ.remove();
                             }
 
                             double D_k = pDocFreq;
@@ -125,6 +120,7 @@ public class SimpleVectorModel extends WeightingModel
             };
             pool.execute(run);
         }
+        pool.shutdown();
         
 		//you may complete any initialisation code here.
 		//you may assume access to 
