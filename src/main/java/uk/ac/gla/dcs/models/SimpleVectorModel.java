@@ -60,6 +60,7 @@ public class SimpleVectorModel extends WeightingModel
         Lexicon<String> lex = index.getLexicon();
 
         ExecutorService pool = Executors.newCachedThreadPool();
+        final Map<String, Double> docFreqHashMap = new HashMap<String, Double>();
         for(int i = 0; i<num_doc; i++) {
             final int j = i;
             Runnable run = new Runnable() {
@@ -74,14 +75,9 @@ public class SimpleVectorModel extends WeightingModel
                         e.printStackTrace();
                     }
                     //NB: postings will be null if the document is empty
-                    Map<String, Double> docFreqHashMap = new HashMap<String, Double>();
+                    
 
-                    while (true) {
-                        try {
-                            if (!(postings.next() != IterablePosting.EOL)) break;
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
+                    while (postings.next() != IterablePosting.EOL) {
                         double docLength = postings.getDocumentLength();
                         Map.Entry<String, LexiconEntry> lee = lex.getLexiconEntry(postings.getId());
                         double tf = postings.getFrequency();
