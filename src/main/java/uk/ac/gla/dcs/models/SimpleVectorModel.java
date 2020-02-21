@@ -80,38 +80,36 @@ public class SimpleVectorModel extends WeightingModel
                     }
                     //NB: postings will be null if the document is empty
                     double magnitude = 0.0;
-                    while (true) {
-                        try {
-                            if (!(postings.next() != IterablePosting.EOL)) break;
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        double docLength = postings.getDocumentLength();
-                        Map.Entry<String, LexiconEntry> lee = lex.getLexiconEntry(postings.getId());
-                        double tf = postings.getFrequency();
-                        double pDocFreq = 0.0;
-                        if(lockQ.isEmpty()){
-                            if (docFreqHashMap.containsKey(lee.getKey())) {
-                                pDocFreq = docFreqHashMap.get(lee.getKey());
-                            } else {
-                                LexiconEntry le = lex.getLexiconEntry(lee.getKey());
-                                pDocFreq = le.getDocumentFrequency();
-                                lockQ.add(1);
-                                docFreqHashMap.put(lee.getKey(), pDocFreq);
-                                lockQ.remove();
+                    try {
+                        while (postings.next() != IterablePosting.EOL){
+                            double docLength = postings.getDocumentLength();
+                            Map.Entry<String, LexiconEntry> lee = lex.getLexiconEntry(postings.getId());
+                            double tf = postings.getFrequency();
+                            double pDocFreq = 0.0;
+                            if(lockQ.isEmpty()){
+                                if (docFreqHashMap.containsKey(lee.getKey())) {
+                                    pDocFreq = docFreqHashMap.get(lee.getKey());
+                                } else {
+                                    LexiconEntry le = lex.getLexiconEntry(lee.getKey());
+                                    pDocFreq = le.getDocumentFrequency();
+                                    lockQ.add(1);
+                                    docFreqHashMap.put(lee.getKey(), pDocFreq);
+                                    lockQ.remove();
+                                }
                             }
+
+                            double D_k = pDocFreq;
+                            // Calculate the TF
+                            double TF = Math.log(tf) / Math.log(10);
+                            // Calculate the idf
+                            double idf = Math.log((N_doc - D_k + 0.5) / (D_k + 0.5)) / Math.log(10);
+                            double tf_idf = (1 + TF) * idf;
+                            //docFreqHashMap.put(lee.getKey(), tf_idf);
+                            magnitude = magnitude + Math.pow(tf_idf, 2);
                         }
+                    }catch (Exception e){
 
-                        double D_k = pDocFreq;
-                        // Calculate the TF
-                        double TF = Math.log(tf) / Math.log(10);
-                        // Calculate the idf
-                        double idf = Math.log((N_doc - D_k + 0.5) / (D_k + 0.5)) / Math.log(10);
-                        double tf_idf = (1 + TF) * idf;
-                        //docFreqHashMap.put(lee.getKey(), tf_idf);
-                        magnitude = magnitude + Math.pow(tf_idf, 2);
                     }
-
                     /*
                     for (Object value : docFreqHashMap.values()) {
                         magnitude = magnitude + Math.pow(((Double) value), 2);
