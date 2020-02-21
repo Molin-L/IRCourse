@@ -2,55 +2,81 @@ package uk.ac.gla.dcs.models;
 
 import org.terrier.matching.models.WeightingModel;
 import org.terrier.structures.postings.Posting;
+import org.terrier.Index.*;
 import java.util.*;
+import java.io.*;
 /** You should use this sample class to implement a Simple TF*IDF weighting model for Exercise 1
   * of the exercise. You can tell Terrier to use your weighting model by specifying the 
   * -w commandline option, or the property trec.model=uk.ac.gla.dcs.models.MyWeightingModel.
   * NB: There is a corresponding unit test that you should also complete to test your model.
   * @author Molin Liu
   */
-private static class CountDocOcc implements Callable<Response> {
-
-}
 
 public class SimpleVectorModel extends WeightingModel
 {
 	private static final long serialVersionUID = 1L;
 
 	public String getInfo() { return this.getClass().getSimpleName(); }
-	
+	public static Map<Integer, HashMap<String, Double>> tfIdfWeight;
 	boolean init = false;
 	
 	//init() will NOT be needed in your Simple TF*IDF implementation but 
 	//will be needed for your vector space model implementation
 	
 	void init() {
+        File binFile = new File("tfIdfWeigh.bin");
+        if(binFile.exists() && !binFile.isDirectory()) { 
+            ObjectInputStream objectInputStream =
+                new ObjectInputStream(new FileInputStream(binFile));
+            tfIdfWeight= (HashMap<Integer, HashMap<String, Double>>) objectInputStream.readObject();
+            init = true;
+            return;
+        }
+        binFile.createNewFile(); // if file already exists will do nothing
+        ObjectOutputStream objectOutputStream =
+                new ObjectOutputStream(new FileOutputStream(binFile, false));
 
-        public static Map<String, Vector<Double>> vectorHashMap = new HashMap<String, Vector<Double>>()
+        tfIdfWeight = new HashMap<Integer, HashMap<String, Double>>();
+        
+        //Preset
         int num_doc = 807775;
         double [] init_array = new double[num_doc];
+        double N_doc = super.numberOfDocuments;
+
+        Index index = Index.createIndex();
+        PostingIndex<?> di = index.getDirectIndex();
+        DocumentIndex doi = index.getDocumentIndex();
+        Lexicon<String> lex = index.getLexicon();
         for(int i = 0; i<num_doc; i++){
-            Index index = Index.createIndex();
-            PostingIndex<?> di = index.getDirectIndex();
-            DocumentIndex doi = index.getDocumentIndex();
-            Lexicon<String> lex = index.getLexicon();
+            
             int docid = i; //docids are 0-based
             IterablePosting postings = di.getPostings(doi.getDocumentEntry(docid));
             //NB: postings will be null if the document is empty
+            Map<String, Double> docFreqHashMap = new HashMap<String, double>();
+            
             while (postings.next() != IterablePosting.EOL) {
+                double docLength = postings.getDocumentLength();
                 Map.Entry<String,LexiconEntry> lee = lex.getLexiconEntry(postings.getId());
-
-                if(vectorHashMap.containKey(lee.getKey())){
-                    temp_vector = new Vector<Double>(Array.asList(init_array));
-                    temp_vector.set(i, postings.getFrequency());
-                    vectorHashMap.put(lee.getKey(), temp_vector);
+                double tf = postings.getFrequency();
+                double pDocFreq;
+                if(docFreqHashMap.containKey(lee.getKey())){
+                    pDocFreq = docFreqHashMap.get(lee.getKey());
                 }else{
-                    temp_vector = vectorHashMap.get(lee.getKey());
-                    temp_vector.set(i, postings.getFrequency());
-                    vectorHashMap.replace(lee.getKey(), temp_vector);
+                    Index index = Index.createIndex();
+                    Lexicon<String> lex = index.getLexicon();
+                    LexiconEntry le = lex.getLexiconEntry(lee.getKey());
+                    pDocFreq = le.getDocumentFrequency();
+                    docFreqHashMap.put(lee.getKey(), pDocFreq);
                 }
-                
-        }
+                double D_k = pDocFreq;
+                // Calculate the TF
+                double TF = Math.log(tf) / Math.log(10);
+                // Calculate the idf
+                double idf = Math.log((N_doc - D_k + 0.5) / (D_k + 0.5)) / Math.log(10);
+                double tf_idf = keyFrequency*(1 + TF) * idf;
+                docFreqHashMap.put(lee.getKey(), tf_idf);
+            }
+            tfIdfWeight.put(i, docFreqHashMap);
         }
         
 		//you may complete any initialisation code here.
@@ -69,6 +95,8 @@ public class SimpleVectorModel extends WeightingModel
 		
 		//Terrier will only have one index loaded at the once time, so
 		//to share variables between weighting model instances, use static variables
+        objectOutputStream.writeObject(tfIdfWeight);
+        objectOutputStream.close();
 		init = true;
 	}
 
