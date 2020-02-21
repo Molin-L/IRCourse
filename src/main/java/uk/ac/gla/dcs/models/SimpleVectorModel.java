@@ -26,6 +26,7 @@ public class SimpleVectorModel extends WeightingModel
 
 	public String getInfo() { return this.getClass().getSimpleName(); }
 	public static Map<Integer, HashMap<String, Double>> tfIdfWeight;
+    public static HashMap<Integer, Double> docMagMap = new HashMap<Integer, Double>();
 	boolean init = false;
 	
 	//init() will NOT be needed in your Simple TF*IDF implementation but 
@@ -33,9 +34,24 @@ public class SimpleVectorModel extends WeightingModel
 	
 	void init() throws IOException, ClassNotFoundException {
 
-        File binFile = new File("/home/ubuntu/IR/Coursework/IRcourse/res/tfIdfWeigh.csv");
+        File binFile = new File("/home/ubuntu/IR/Coursework/IRcourse/res/docMagni.txt");
         if(binFile.exists() && !binFile.isDirectory()) {
             //tfIdfWeight= (HashMap<Integer, HashMap<String, Double>>) objectInputStream.readObject();
+            String line;
+            BufferedReader reader = new BufferedReader(new FileReader(binFile));
+            while ((line = reader.readLine()) != null)
+            {
+                String[] parts = line.split(",", 2);
+                if (parts.length >= 2)
+                {
+                    int key = Integer.valueOf(parts[0]);
+                    double value = Double.valueOf(parts[1]);
+                    docMagMap.put(key, value);
+                } else {
+                    System.out.println("ignoring line: " + line);
+                }
+            }
+            //System.out.println(docMagMap.get(0));
             init = true;
             return;
         }
@@ -163,6 +179,10 @@ public class SimpleVectorModel extends WeightingModel
 		// Calculate the idf
 		double idf = Math.log((N_doc - D_k + 0.5) / (D_k + 0.5)) / Math.log(10);
 		double tf_idf = keyFrequency*(1 + TF) * idf;
+        if(p.getId()==603245){
+            System.out.println(super.termFrequency);
+        }
+        return (keyFrequency*tf_idf)/(Math.sqrt(docMagMap.get(p.getId())));
 		//you should implement this method to return a score for a term occurring tf times in a document of docLength tokens.
 
 		//you may assume access to the following member variables of the superclass:
@@ -173,9 +193,6 @@ public class SimpleVectorModel extends WeightingModel
    		//numberOfDocuments (The number of documents in the collection)
 		//numberOfTokens (the total length of all documents in the collection)
 		//as well as any member variables you create   
-
-
-		return tf_idf;
 	}
 
 	@Override
