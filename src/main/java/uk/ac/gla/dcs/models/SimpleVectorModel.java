@@ -79,7 +79,7 @@ public class SimpleVectorModel extends WeightingModel
                         e.printStackTrace();
                     }
                     //NB: postings will be null if the document is empty
-
+                    double magnitude = 0.0;
                     while (true) {
                         try {
                             if (!(postings.next() != IterablePosting.EOL)) break;
@@ -108,18 +108,21 @@ public class SimpleVectorModel extends WeightingModel
                         // Calculate the idf
                         double idf = Math.log((N_doc - D_k + 0.5) / (D_k + 0.5)) / Math.log(10);
                         double tf_idf = (1 + TF) * idf;
-                        docFreqHashMap.put(lee.getKey(), tf_idf);
-
+                        //docFreqHashMap.put(lee.getKey(), tf_idf);
+                        magnitude = magnitude + Math.pow(tf_idf, 2);
                     }
-                    double magnitude = 0.0;
+
+                    /*
                     for (Object value : docFreqHashMap.values()) {
                         magnitude = magnitude + Math.pow(((Double) value), 2);
                     }
+                    */
                     try {
                         fw.write(String.format("%d, %f\n", j, magnitude));
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
+
                 }
             };
             pool.execute(run);
